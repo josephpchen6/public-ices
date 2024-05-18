@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>GPA Inflation</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+  <style>
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr); /* 3 columns with equal width */
+      gap: 10px; /* Gap between grid items */
+    }
+    .grid-item {
+      background-color: #ededed; /* Background color */
+      padding: 10px; /* Padding */
+      text-align: center; /* Center text */
+    }
+    .legend-table {
+      width: 300px; /* Adjust as needed */
+      height: 550px; /* Adjust as needed */
+      display: block;
+      overflow-y: scroll; /* This enables scrolling */
+    }
+
+  </style>
+</head>
+
+<body>
+  <ul class="nav nav-pills mt-2 mx-2">
+    <li class="nav-item">
+      <a class="nav-link active" href="/">GPA Inflation</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="/reviews">Search Courses</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="/Favorites">⭑ Favorites</a>
+    </li>
+    <li class="nav-item ml-auto" id="accountToggle"></li>
+  </ul>
+
+  <div class="container mt-4">
+    <div class="card">
+      <div class="card-body">
+        <h2 style = "text-align: center;"><b>GPA Inflation</b></h2>
+        <div class="grid-container">
+          <div class="grid-item">
+            <p>Course Number</p>
+            <input type="text" id="courseNumberSearch" placeholder="Name...">
+          </div>
+          <div class="grid-item">
+            <p>Year</p>
+            <input type="number" id="yearSearch" placeholder="Year..." min="2010">
+          </div>
+        </div>
+      </div>
+      <button type="button" class="btn btn-info mt-3" id="searchButton">
+        Graph!
+      </button>
+    </div>
+  </div>
+
+  <div id="scatterPlot" style="width: 1200px; height: 800px;"></div>
+
+  <script type ="text/javascript">
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const isLoggedIn = sessionStorage.getItem('username');
+        const accountToggle = document.getElementById('accountToggle');
+        if (isLoggedIn != null) {
+            accountToggle.innerHTML =
+              '<a class="btn btn-danger" href="/account" id="accountButton">Account</a>';
+            document.getElementById('loginButton').addEventListener('click', logout);
+        } else {
+            accountToggle.innerHTML =
+              '<a class="nav-link btn-info" href="/login" aria-selected="true" id="loginButton">Login</a>';
+        }
+    });
+
+  String.prototype.hash = function() {
+    var hash = 0,
+      i, chr;
+    if (this.length === 0) return hash;
+    for (i = 0; i < this.length; i++) {
+      chr = this.charCodeAt(i);
+      hash = ((hash << 5) - hash) + chr;
+      console.log(hash);
+      hash |= 0; // Convert to 32bit integer
+    }
+    hash = "#" + Math.abs(hash % 16777216).toString(16).padStart(6, '0');
+    return hash;
+  }
+
+  $(document).ready(function() {
+  $('#searchButton').click(function() {
+    $.ajax({
+      url: '/api/gpa_inflation',
+      method: 'GET',
+      data: { courseNumber: $('#courseNumberSearch').val(), year : $('#yearSearch').val() },
+      success: function(data) {
+        var scatterData = data.map(function(course) {
+          return [course.Year, course.Term, course.Average_GPA, course.ProfessorName];
+        });
+        drawScatterPlot(scatterData);
+      },
+      error: function() {
+        alert('Failed to load professor data.');
+      }});
+    });
+  });
+
+  // Function to draw scatter plot
+  function drawScatterPlot(scatterData) {
+    google.charts.load('current', {'packages':['corechart']});
+    google.charts.setOnLoadCallback(function() {
+
+      var data = new google.visualization.DataTable();
+      data.addColumn('number', 'Year');
+      data.addColumn('number', 'Average GPA');
+      data.addColumn({ type: 'string', role: 'style' });
+      data.addColumn({ type: 'string', role: 'tooltip', 'p': { 'html': true } });
+      const legend_entries = new Set();
+      term_map = {"Spring" : 0, "Summer" : 0.33, "Fall" : 0.67};
+      scatterData.forEach(function(row) {
+        var year = row[0] + term_map[row[1]];
+        var color = row[3].hash();
+        data.addRow([year, row[2], 'point {fill-color: ' + color + '}',
+          '<div style="padding:10px 5px 10px 5px;height:170px;width:170px;"><center>'+
+          `<b style="font-size:15px"> Term: </b> <p style="font-size:13px"> ${row[1].toUpperCase()} ${row[0].toString()} </p>`+
+          `<b style="font-size:15px"> Professor: </b> <p style="font-size:13px"> ${row[3]} </p>` +
+          `<b style="font-size:16px"> ${row[2].toString()} Average GPA` + "</center></div>"]);
+        legend_entries.add('<td style="color: ' + color + '; font-size: 18px;">&#9679;</td> ' + row[3]);
+      });
+
+      var options = {
+        title: 'Average GPA by Year',
+        hAxis: {
+          title: 'Year',
+          format: '####'
+        },
+        vAxis: { title: 'Average GPA' },
+        tooltip: { isHtml: true },
+        legend: 'none',
+      };
+
+      var chart = new google.visualization.ScatterChart(document.getElementById('scatterPlot'));
+      chart.draw(data, options);
+
+      var legend = document.createElement('table');
+      legend.setAttribute('class', 'legend-table');
+      var legendHeader = document.createElement('th');
+      legend.innerHTML = '<th style="font-size:24px">Legend</th>';
+      legend_entries.forEach(function(row) {
+        var item = document.createElement('tr');
+        item.innerHTML = row;
+        legend.appendChild(item);
+      });
+      document.getElementById('scatterPlot').appendChild(legend);
+
+      legend.style.position = 'absolute';
+      legend.style.right = '100px'; // Adjust the right offset as needed
+      legend.style.top = '400px'; // Adjust the top offset as needed
+    });
+  }
+
+  </script>
+</body>
+</html>

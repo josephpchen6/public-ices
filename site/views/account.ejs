@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Account Settings</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+</head>
+
+<body>
+
+    <p class="h2 mt-4 text-center" id="usernameHeader"></p>
+
+    <p class="h3 mt-4 text-center" id="numReviews"></p>
+
+    <div class="container text-center mt-4">
+        <button class="btn btn-lg btn-info" onclick='window.location.href="/"'>Back</button>
+        <button class="btn btn-lg btn-primary" onclick='sessionStorage.clear(); window.location.href="/"'>Logout</button>
+        <button class="btn btn-lg btn-danger" data-toggle="modal" data-target="#deleteAccountModal">Delete Account</button>
+    </div>
+
+    <div class="modal fade" id="deleteAccountModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-content pb-3 text-center" role="document">
+            <div class="modal-header text-center">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <p class="h4 pt-3">Are you sure?<br>This will delete all your reviews!</p>
+            <button class="btn btn-danger col-6 mx-auto mt-2" onclick="deleteAccountButtonClick()">Delete Account</button>
+        </div>
+    </div>
+
+    <script>
+        function deleteAccountButtonClick() {
+        $.ajax({
+            url: '/api/delete_account',
+            method: 'POST',
+            data: { username : sessionStorage.getItem("username") },
+            success: function(data) {
+                sessionStorage.clear();
+                window.location.replace("/");
+            },
+            error: function() {
+                alert('Failed to delete account.');
+            }});
+        };
+
+        $(document).ready(function() {
+            $("#usernameHeader").text("Hi, " + sessionStorage.getItem("username"));
+        });
+    </script>
+
+</body>
+

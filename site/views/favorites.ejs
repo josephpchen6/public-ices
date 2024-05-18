@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Favorites</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+  <style>
+
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .grid-item {
+      background-color: #ededed;
+      padding: 10px;
+      text-align: center;
+    }
+    .vertical-center {
+        margin: 0;
+        position: absolute;
+        top: 50%;
+        -ms-transform: translateY(-50%);
+        transform: translateY(-50%);
+    }
+    .course-overview-button {
+      background-color: #4CAF50; 
+      border: 2px solid #4CAF50;
+      color: white;
+      padding: 4px 8px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+    .remove-favorite-button {
+      background-color: #fafa74;
+      border: 2px solid #fafa74;
+      color: black;
+      padding: 4px 8px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+
+<body>
+    <ul class="nav nav-pills mt-2 mx-2">
+      <li class="nav-item">
+        <a class="nav-link" href="/">GPA Inflation</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/reviews">Search Courses</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="/Favorites">⭑ Favorites</a>
+      </li>
+      <li class="nav-item ml-auto" id="accountToggle"></li>
+    </ul>
+
+<div class="container mt-4 mb-4">
+    <div class="card">
+        <div class="card-body">
+        <h2 style = "text-align: center;"><b>Favorites</b></h2>
+        </div>
+        <button type="button" class="btn btn-info mt-3" id="showFavoritesButton">
+            Show Favorited Courses
+        </button>
+        <button type="button" class="btn btn-info mt-3" id="compareFavoritesButton">
+            Compare Favorites
+        </button>
+    </div>
+</div>
+    
+  <div class="alert alert-primary text-center" role="alert-success" style="display: none;" id="favoriteRemovedBanner">
+    Favorite Removed for
+    <span id="courseNumberBanner"></span>
+    (<span id="professorBanner"></span>)
+  </div>
+
+  <table class="table" id="courseBody">
+    <tbody id="courseBody"><!-- sections here --></tbody>
+  </table>
+
+
+  <div class="modal fade" id="viewCourseModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg mx-auto" role="document">
+      <div class="modal-content">
+        <div class="modal-header text-center">
+            <h4 class="modal-title w-100" id="overviewTitle"></h4> <!-- title here -->
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="modal-body">
+          <table class="table mb-4" id="courseOverviewStats"></table> <!-- body goes here -->
+          <table class="table" id="courseReviewStats"></table> <!-- reviews goes here -->
+          <div id="reviewTexts"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="removeFavoriteModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg mx-auto" role="document">
+      <div class="modal-content">
+        <div class="modal-header text-center">
+            <h4 class="modal-title w-100" id="addReviewTitle">
+              REMOVE FAVORITE FOR
+              <span id="courseNumberTitle"></span>
+              (<span id="professorTitle"></span>)
+            </h4> <!-- title here -->
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="modal-body" id="addFavoriteForm">
+            <button type="button" class="btn btn-primary btn-block col-6 mx-auto mt-3" id="removeFavoriteButton">
+              Submit
+            </button>
+        </div>
+      </div>
+    </div>
+  </div>
+    
+
+  <script type ="text/javascript">
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const isLoggedIn = sessionStorage.getItem('username');
+        const accountToggle = document.getElementById('accountToggle');
+        if (isLoggedIn != null) {
+            accountToggle.innerHTML =
+              '<a class="btn btn-danger" href="/account" id="accountButton">Account</a>';
+            document.getElementById('loginButton').addEventListener('click', logout);
+        } else {
+            accountToggle.innerHTML =
+              '<a class="nav-link btn-info" href="/login" aria-selected="true" id="loginButton">Login</a>';
+            document.getElementById('accountButton').addEventListener('click', login);
+        }
+    });
+
+    $(document).ready(function() {
+    $('#showFavoritesButton').click(function() {
+        const user = sessionStorage.getItem('username');
+        if (user) {
+          $.ajax({
+            url: '/api/show_favorites',
+            method: 'GET',
+            dataType: 'JSON',
+            data: {username: user},
+            success: function(data) {
+                //const user = sessionStorage.getItem('username');
+                //document.write(data[0].ProfessorName)
+                var rows =
+                  `<thead><tr>
+                    <th scope="col">Course Number</th>
+                    <th scope="col">Professor</th>
+                  </tr></thead>`;
+                  data.forEach(function(username) {
+                    rows += `
+                      <tbody><tr>
+                        <td>${username.CourseNumber}</td>
+                        <td>${username.ProfessorName}</td>
+                        <td>
+                          <button class="course-overview-button" 
+                          onclick="handleCourseOverviewButtonClick('${username.CourseNumber}', '${username.ProfessorName}')" 
+                          data-toggle="modal" data-target="#viewCourseModal">Course Overview</button>
+                          <button class="remove-favorite-button" id="RemoveFavoriteButton"
+                          onclick="handleRemoveFavoriteButtonClick('${username.CourseNumber}', '${username.ProfessorName}')"
+                          data-toggle="modal" data-target="#removeFavoriteModal">Remove Favorite</button>
+                        </td>
+                      </tr></tbody>`;
+                });
+                $('#courseBody').html(rows);
+            },
+            error: function() {
+                alert('Failed to load course data.');
+          }});
+        } else {
+          alert("Must be logged in to use this feature!");
+        }
+    });});
+
+    $(document).ready(function() {
+    $('#compareFavoritesButton').click(function() {
+        const user = sessionStorage.getItem('username');
+        if (user) {
+          $.ajax({
+            url: '/api/compare_favorites',
+            method: 'GET',
+            dataType: 'JSON',
+            data: {username: user},
+            success: function(data) {
+                console.log(data[0].length)
+                console.log(data[0])
+            
+                var rows =
+                  `<thead><tr>
+                    <th scope="col">Courses with Heavy Workload</th>
+                    <th scope="col">Best Rated Professors</th>
+                  </tr></thead>`;
+
+                  var numCourses = data[0].length;
+                  var numProfessors = data[1].length;
+                  let l = Math.max(data[0].length,data[1].length);
+
+                  for (let i = 0; i < l; i++) { //loop through courses
+                    if (data[0][i] != undefined && data[1][i] != undefined) {
+                        rows += `
+                        <tbody><tr>
+                            <td>${data[0][i].CourseNumber}</td>
+                            <td>${data[1][i].ProfessorName}</td>
+                        </tr></tbody>`;
+                    } else if (data[0][i] != undefined && data[1][i] === undefined) {
+                        rows += `
+                        <tbody><tr>
+                            <td>${data[0][i].CourseNumber}</td>
+                            <td>None</td>
+                        </tr></tbody>`;
+                    } else if (data[0][i] === undefined && data[1][i] != undefined) {
+                        rows += `
+                        <tbody><tr>
+                            <td>None</td>
+                            <td>${data[1][i].ProfessorName}</td>
+                        </tr></tbody>`;
+                    }
+                  }
+                $('#courseBody').html(rows);
+            },
+            error: function() {
+                alert('Failed to load course data.');
+          }});
+        } else {
+          alert("Must be logged in to use this feature!");
+        }
+        
+    });});
+
+    function handleCourseOverviewButtonClick(courseNumber, professor) {
+      $.ajax({
+        url: '/api/course_overview',
+        method: 'GET',
+        data: { courseNumber: courseNumber, professorName: professor},
+        success: function(data) {
+          $('#overviewTitle').html(`${courseNumber} OVERVIEW (${professor})`);
+          var rating = data[0].Rating;
+          if (rating == null) { rating = 0; }
+          const overviewStats =
+            `<thead><tr>
+              "<th>Course Name</th>
+              "<th>Credit Hours</th>
+              "<th>Cumulative GPA</th>
+              "<th>Professor Rating</th>
+            </tr></thead><tbody><tr>
+              <td>${data[0].CourseName}</td>
+              <td>${data[0].CreditHours}</td>
+              <td>${data[0].Cumulative_GPA}</td>
+              <td>${rating}</td>
+            </tr></tbody>`;
+          $('#courseOverviewStats').html(overviewStats);
+        },
+      error: function() {
+          alert('Failed to load course data.');
+      }});
+      $.ajax({
+          url: '/api/reviews',
+          method: 'GET',
+          data: { courseNumber: courseNumber, professorName: professor},
+          success: function(data) {
+            var overviewReviews = '<th class="h5 text-center">No reviews yet... Be the first?</th>'
+            if (!jQuery.isEmptyObject(data)) {
+              var reviewTexts = ""
+              overviewReviews =
+                `<thead><tr>
+                  <th>Average Workload</th>
+                  <th>Average Amount Learned</th>
+                  <th>Average Difficulty</th>
+                  <th>Average Instruction Quality</th>
+                  <th>Average Management</th>
+                  <th>Total Reviews</th>
+                </tr></thead><tbody><tr>`;
+              var workload = 0;
+              var amountLearned = 0; 
+              var difficulty = 0; 
+              var instructionQuality = 0; 
+              var management = 0; 
+              var entries = 0;
+              data.forEach(function(reviews) {
+                workload += reviews.Workload;
+                amountLearned += reviews.AmountLearned;
+                difficulty += reviews.Difficulty;
+                instructionQuality += reviews.InstructionQuality;
+                management += reviews.Management;
+                reviewTexts += `<p>${reviews.Username}: ${reviews.ReviewText}</p>`;
+                entries++;
+              });
+              $('#reviewTexts').html(reviewTexts);
+              overviewReviews += `<td>${workload / entries}</td>
+                  <td>${amountLearned / entries}</td>
+                  <td>${difficulty / entries}</td>
+                  <td>${instructionQuality / entries}</td>
+                  <td>${management / entries}</td>
+                  <td>${entries}</td></tr></tbody>`
+            } else {
+              $('#reviewTexts').html("");
+            }
+            $('#courseReviewStats').html(overviewReviews);
+          }
+      });
+    };
+
+    function handleRemoveFavoriteButtonClick(courseNumber, professor) {
+      $('#courseNumberTitle').html(courseNumber);
+      $('#professorTitle').html(professor);
+      //var usernameInput = document.getElementById("usernameInput");
+    };
+
+    $(document).ready(function() {
+        const username = sessionStorage.getItem("username");
+        //document.write(usernameInput)
+        if (!username) {
+            username = "anonymous";
+        }
+      $('#removeFavoriteButton').click(function() {
+        var reviewData = {
+          //username: document.getElementById("usernameInput").value,
+          username: username,
+          courseNumber: document.getElementById("courseNumberTitle").innerText,
+          professorName: document.getElementById("professorTitle").innerText,
+        };
+        $.ajax({
+        url: '/api/remove_favorite',
+        method: 'POST',
+        data: reviewData,
+        success: function(data) {
+            $('#removeFavoriteModal').modal('hide');
+            displayFavoriteRemovedBanner(reviewData.courseNumber, reviewData.professorName);
+        },
+        error: function() {
+            alert('Failed to post review data.');
+        }});
+      });
+    });
+
+    function displayFavoriteRemovedBanner(courseNumber, professor) {
+      $('#favoriteRemovedBanner').fadeIn();
+      $('#courseNumberBanner').html(courseNumber);
+      $('#professorBanner').html(professor);
+      setTimeout(function() {
+        $('#favoriteRemovedBanner').fadeOut();
+      }, 3000);
+    }
+
+  </script>
+</body>
+
+
+
